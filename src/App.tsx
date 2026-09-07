@@ -6,6 +6,7 @@ import type {
   WeatherVariable,
   TimeHorizon
 } from './types/weather';
+import type { FavoriteItem } from './types/verification';
 import { DEFAULT_ACTIVE_MODELS } from './constants/models';
 import { fetchMultiModelForecast } from './services/api';
 import {
@@ -17,17 +18,20 @@ import {
   saveTimeHorizon,
   loadCachedForecast
 } from './services/storage';
+import { getFavorites, addFavorite, removeFavorite } from './services/verificationApi';
 
 import { Header } from './components/Header';
 import { ConsensusCard } from './components/ConsensusCard';
 import { ModelSelector } from './components/ModelSelector';
 import { ForecastChart } from './components/ForecastChart';
 import { ComparisonTable } from './components/ComparisonTable';
+import { FavoritesView } from './components/FavoritesView';
 import { OfflineBanner } from './components/OfflineBanner';
 import { DeployGuideModal } from './components/DeployGuideModal';
 import { AlertTriangle, RotateCw } from 'lucide-react';
 
 export const App: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<'forecast' | 'favorites'>('forecast');
   const [location, setLocation] = useState<GeoLocation>(loadStoredLocation);
   const [activeModels, setActiveModels] = useState<WeatherModelId[]>(loadActiveModels);
   const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>(loadTimeHorizon);
@@ -39,6 +43,19 @@ export const App: React.FC = () => {
   const [isOffline, setIsOffline] = useState<boolean>(!navigator.onLine);
   const [error, setError] = useState<string | null>(null);
   const [isDeployModalOpen, setIsDeployModalOpen] = useState<boolean>(false);
+
+  // Server-side favorites
+  const [serverFavorites, setServerFavorites] = useState<FavoriteItem[]>([]);
+
+  // Fetch server favorites list
+  const refreshServerFavorites = useCallback(async () => {
+    const list = await getFavorites();
+    setServerFavorites(list);
+  }, []);
+
+  useEffect(() => {
+    refreshServerFavorites();
+  }, [refreshServerFavorites]);
 
   // Monitor network status
   useEffect(() => {
@@ -94,6 +111,7 @@ export const App: React.FC = () => {
     setLocation(loc);
     saveStoredLocation(loc);
     setSelectedHourIndex(0);
+    setActiveTab('forecast');
   };
 
   // Handle toggling of weather models
@@ -134,16 +152,46 @@ export const App: React.FC = () => {
     saveTimeHorizon(h);
   };
 
+  // Check if current location is favorite
+  const currentFavItem = serverFavorites.find(
+    (f) =>
+      f.name.toLowerCase() === location.name.toLowerCase() ||
+      (Math.abs(f.latitude - location.latitude) < 0.05 &&
+        Math.abs(f.longitude - location.longitude) < 0.05)
+  );
+  const isFavorite = Boolean(currentFavItem);
+
+  const handleToggleFavorite = async () => {
+    if (currentFavItem) {
+      const ok = await removeFavorite(currentFavItem.id);
+      if (ok) {
+        await refreshServerFavorites();
+      }
+    } else {
+      const added = await addFavorite(location);
+      if (added) {
+        await refreshServerFavorites();
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#080d1a] text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white">
       {/* App Header */}
       <Header
         currentLocation={location}
         onSelectLocation={handleSelectLocation}
-        onRefresh={() => loadForecastData(location, activeModels)}
+        onRefresh={() => {
+          loadForecastData(location, activeModels);
+          refreshServerFavorites();
+        }}
         isLoading={isLoading}
         isOffline={isOffline}
         onOpenDeployModal={() => setIsDeployModalOpen(true)}
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
+        onToggleFavorite={handleToggleFavorite}
+        isFavorite={isFavorite}
       />
 
       {/* Main Container */}
@@ -177,52 +225,70 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* Loading Indicator for first load */}
-        {isLoading && !forecast && (
-          <div className="min-h-[400px] flex flex-col items-center justify-center gap-3 text-slate-400">
-            <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-medium">
-              Interrogazione simultanea degli 8 modelli Open-Meteo in corso...
-            </p>
-          </div>
-        )}
-
-        {/* Loaded Forecast Content */}
-        {forecast && (
+        {/* View Switcher Content */}
+        {activeTab === 'favorites' ? (
+          <FavoritesView
+            onSelectCityForLiveForecast={(fav) => {
+              handleSelectLocation({
+                id: fav.id,
+                name: fav.name,
+                latitude: fav.latitude,
+                longitude: fav.longitude,
+                country: fav.country,
+                timezone: fav.timezone || 'auto'
+              });
+            }}
+          />
+        ) : (
           <>
-            {/* Top Telemetry & Consensus Card */}
-            <ConsensusCard
-              forecast={forecast}
-              currentHourIndex={selectedHourIndex}
-            />
+            {/* Loading Indicator for first load */}
+            {isLoading && !forecast && (
+              <div className="min-h-[400px] flex flex-col items-center justify-center gap-3 text-slate-400">
+                <div className="w-10 h-10 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm font-medium">
+                  Interrogazione simultanea degli 8 modelli Open-Meteo in corso...
+                </p>
+              </div>
+            )}
 
-            {/* Model Selector Bar */}
-            <ModelSelector
-              activeModels={activeModels}
-              onToggleModel={handleToggleModel}
-              onSelectAll={handleSelectAll}
-              onSelectPrimaryOnly={handleSelectPrimaryOnly}
-              location={location}
-            />
+            {/* Loaded Forecast Content */}
+            {forecast && (
+              <>
+                {/* Top Telemetry & Consensus Card */}
+                <ConsensusCard
+                  forecast={forecast}
+                  currentHourIndex={selectedHourIndex}
+                />
 
-            {/* Interactive Multi-Model Chart */}
-            <ForecastChart
-              forecast={forecast}
-              activeVariable={activeVariable}
-              onChangeVariable={setActiveVariable}
-              timeHorizon={timeHorizon}
-              onChangeTimeHorizon={handleTimeHorizonChange}
-              selectedHourIndex={selectedHourIndex}
-              onSelectHourIndex={setSelectedHourIndex}
-            />
+                {/* Model Selector Bar */}
+                <ModelSelector
+                  activeModels={activeModels}
+                  onToggleModel={handleToggleModel}
+                  onSelectAll={handleSelectAll}
+                  onSelectPrimaryOnly={handleSelectPrimaryOnly}
+                  location={location}
+                />
 
-            {/* Synthesis Comparison Table */}
-            <ComparisonTable
-              forecast={forecast}
-              activeVariable={activeVariable}
-              selectedHourIndex={selectedHourIndex}
-              onSelectHourIndex={setSelectedHourIndex}
-            />
+                {/* Interactive Multi-Model Chart */}
+                <ForecastChart
+                  forecast={forecast}
+                  activeVariable={activeVariable}
+                  onChangeVariable={setActiveVariable}
+                  timeHorizon={timeHorizon}
+                  onChangeTimeHorizon={handleTimeHorizonChange}
+                  selectedHourIndex={selectedHourIndex}
+                  onSelectHourIndex={setSelectedHourIndex}
+                />
+
+                {/* Synthesis Comparison Table */}
+                <ComparisonTable
+                  forecast={forecast}
+                  activeVariable={activeVariable}
+                  selectedHourIndex={selectedHourIndex}
+                  onSelectHourIndex={setSelectedHourIndex}
+                />
+              </>
+            )}
           </>
         )}
       </main>
@@ -232,10 +298,10 @@ export const App: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div>
             <p className="font-semibold text-slate-300">
-              MultiMeteo PWA • Meteorologia Comparativa Multi-Modello
+              MultiMeteo PWA • Meteorologia Comparativa Multi-Modello & Logger H24
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Dati generati da Open-Meteo API • Modelli: ECMWF, DWD ICON, NOAA GFS, Météo-France, UKMO, JMA, GEM, MeteoSwiss.
+              Dati Open-Meteo API • Modelli: ECMWF, DWD ICON, NOAA GFS, Météo-France, UKMO, JMA, GEM, MeteoSwiss.
             </p>
           </div>
           <div className="flex items-center gap-3 text-[11px] font-mono">

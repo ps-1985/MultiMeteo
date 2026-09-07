@@ -7,7 +7,9 @@ import {
   Wifi,
   WifiOff,
   RotateCw,
-  Server
+  Server,
+  Star,
+  Activity
 } from 'lucide-react';
 import type { GeoLocation } from '../types/weather';
 import { searchLocations } from '../services/api';
@@ -20,6 +22,10 @@ interface HeaderProps {
   isLoading: boolean;
   isOffline: boolean;
   onOpenDeployModal: () => void;
+  activeTab: 'forecast' | 'favorites';
+  onChangeTab: (tab: 'forecast' | 'favorites') => void;
+  onToggleFavorite: () => void;
+  isFavorite: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,7 +34,11 @@ export const Header: React.FC<HeaderProps> = ({
   onRefresh,
   isLoading,
   isOffline,
-  onOpenDeployModal
+  onOpenDeployModal,
+  activeTab,
+  onChangeTab,
+  onToggleFavorite,
+  isFavorite
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<GeoLocation[]>([]);
@@ -127,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0b1329]/90 backdrop-blur-md border-b border-slate-800">
+    <header className="sticky top-0 z-40 bg-[#0b1329]/95 backdrop-blur-md border-b border-slate-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           {/* Logo & Brand */}
@@ -148,13 +158,25 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-slate-400 hidden sm:block">
-                  Confronto previsionale multi-modello numerico in tempo reale
+                  Confronto previsionale multi-modello & Verifica accuratezza H24
                 </p>
               </div>
             </div>
 
             {/* Quick Actions (Mobile) */}
             <div className="flex items-center gap-1.5 md:hidden">
+              <button
+                onClick={onToggleFavorite}
+                title={isFavorite ? 'Rimuovi dai Preferiti H24' : 'Aggiungi ai Preferiti H24'}
+                className={`p-2 rounded-lg border transition ${
+                  isFavorite
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                    : 'bg-slate-800/80 text-slate-400 border-slate-700/60'
+                }`}
+              >
+                <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-400 text-amber-400' : ''}`} />
+              </button>
+
               {deferredPrompt && !isInstalled && (
                 <button
                   onClick={handleInstallPWA}
@@ -175,31 +197,75 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
+          {/* Navigation View Switcher (Tabs) */}
+          <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800 shadow-inner">
+            <button
+              onClick={() => onChangeTab('forecast')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                activeTab === 'forecast'
+                  ? 'bg-blue-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Activity className="w-3.5 h-3.5 text-blue-300" />
+              <span>Previsioni Live</span>
+            </button>
+
+            <button
+              onClick={() => onChangeTab('favorites')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                activeTab === 'favorites'
+                  ? 'bg-indigo-600 text-white font-bold shadow'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span>Preferiti & Accuratezza H24</span>
+            </button>
+          </div>
+
           {/* Search bar & Location selector */}
-          <div ref={searchContainerRef} className="relative w-full md:max-w-md">
-            <div className="relative flex items-center">
+          <div ref={searchContainerRef} className="relative w-full md:max-w-xs lg:max-w-sm flex items-center gap-1.5">
+            <div className="relative flex-1 flex items-center">
               <div className="absolute left-3 text-slate-400 pointer-events-none">
                 <Search className="w-4 h-4" />
               </div>
               <input
                 type="text"
-                placeholder="Cerca città o località (es. Milano, Zurigo, Parigi)..."
+                placeholder="Cerca città (es. Milano, Zurigo)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => {
                   if (results.length > 0) setIsDropdownOpen(true);
                 }}
-                className="w-full pl-9 pr-10 py-2 text-sm bg-slate-900/90 text-white placeholder-slate-400 rounded-xl border border-slate-700/70 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 transition shadow-inner"
+                className="w-full pl-9 pr-8 py-2 text-sm bg-slate-900/90 text-white placeholder-slate-400 rounded-xl border border-slate-700/70 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 transition shadow-inner"
               />
               <button
                 type="button"
                 onClick={handleGPSLocation}
                 title="Usa posizione GPS del dispositivo"
-                className="absolute right-2 p-1.5 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-lg transition"
+                className="absolute right-2 p-1 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded-lg transition"
               >
-                <Navigation className="w-4 h-4" />
+                <Navigation className="w-3.5 h-3.5" />
               </button>
             </div>
+
+            {/* Favorite Star button (Desktop) */}
+            <button
+              onClick={onToggleFavorite}
+              title={
+                isFavorite
+                  ? `Rimuovi ${currentLocation.name} dai preferiti monitorati dal server`
+                  : `Aggiungi ${currentLocation.name} ai preferiti H24 (il server ne verificherà l'accuratezza)`
+              }
+              className={`p-2 rounded-xl border transition hidden sm:flex items-center justify-center shrink-0 ${
+                isFavorite
+                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                  : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-amber-400'
+              }`}
+            >
+              <Star className={`w-4 h-4 ${isFavorite ? 'fill-amber-400 text-amber-400' : ''}`} />
+            </button>
 
             {/* Autocomplete Dropdown */}
             {isDropdownOpen && (
