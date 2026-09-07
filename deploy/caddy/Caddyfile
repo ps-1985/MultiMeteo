@@ -1,0 +1,28 @@
+# Caddyfile snippet per MultiMeteo PWA
+# Host Tailscale: 100.115.154.44 porta 8085
+
+100.115.154.44:8085 {
+    root * /var/www/multimeteo/dist
+    file_server
+
+    # Compressione moderna
+    encode zstd gzip
+
+    # Regola per Single Page Application (SPA Fallback)
+    try_files {path} /index.html
+
+    # Intestazioni di cache per asset
+    @assets path /assets/*
+    header @assets Cache-Control "public, max-age=31536000, immutable"
+
+    # Service Worker e Manifest sempre freschi
+    @sw path /sw.js /registerSW.js /manifest.webmanifest
+    header @sw Cache-Control "no-store, no-cache, must-revalidate"
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}

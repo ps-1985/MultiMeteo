@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1329" />
+      <stop offset="100%" stop-color="#050811" />
+    </linearGradient>
+    <linearGradient id="sunGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#ea580c" />
+    </linearGradient>
+    <linearGradient id="cloudGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded rectangle -->
+  <rect width="512" height="512" rx="110" fill="url(#bg)" stroke="#1e293b" stroke-width="8" />
+
+  <!-- Multi-Model Orbital Rings (Representing multi-ensemble data) -->
+  <circle cx="256" cy="256" r="190" fill="none" stroke="url(#ringGrad)" stroke-width="4" stroke-dasharray="14 10" opacity="0.4" />
+  <circle cx="256" cy="256" r="215" fill="none" stroke="#3b82f6" stroke-width="2" stroke-dasharray="6 8" opacity="0.25" />
+
+  <!-- Sun Element -->
+  <circle cx="330" cy="180" r="68" fill="url(#sunGrad)" filter="url(#glow)" />
+
+  <!-- Rain / Wind telemetry rays -->
+  <path d="M190 350 L170 390" stroke="#38bdf8" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+  <path d="M240 360 L220 400" stroke="#10b981" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+  <path d="M290 350 L270 390" stroke="#8b5cf6" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+  <path d="M340 360 L320 400" stroke="#f59e0b" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+
+  <!-- Modern Dynamic Cloud -->
+  <path d="M160 320 L350 320 A 45 45 0 0 0 350 230 A 65 65 0 0 0 250 180 A 60 60 0 0 0 160 250 A 45 45 0 0 0 160 320 Z" fill="url(#cloudGrad)" filter="url(#glow)" />
+
+  <!-- Model Nodes on orbit -->
+  <circle cx="446" cy="256" r="8" fill="#10b981" />
+  <circle cx="256" cy="66" r="8" fill="#3b82f6" />
+  <circle cx="66" cy="256" r="8" fill="#8b5cf6" />
+  <circle cx="256" cy="446" r="8" fill="#f59e0b" />
+</svg>

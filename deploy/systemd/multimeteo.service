@@ -1,0 +1,20 @@
+[Unit]
+Description=MultiMeteo PWA Static Web Server (Port 8085)
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/multimeteo
+# Esegue un web server statico con routing SPA abilitato (-s) sulla porta 8085
+ExecStart=/usr/bin/npx serve -s /var/www/multimeteo/dist -l tcp://0.0.0.0:8085
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=multimeteo
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
