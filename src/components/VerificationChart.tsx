@@ -163,17 +163,17 @@ export const VerificationChart: React.FC<VerificationChartProps> = ({
   const futureLabel = futureDays === 0 ? 'Off' : futureDays === 1 ? '24 ore' : futureDays === 2 ? '48 ore' : `${futureDays} giorni`;
 
   return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-xl">
+    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl max-w-full overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-800">
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <h4 className="text-sm font-semibold text-white uppercase tracking-wide">
-            Confronto Temporale Integrato: Verifica Passata & Proiezione Futura
+          <h4 className="text-xs sm:text-sm font-semibold text-white uppercase tracking-wide">
+            Confronto Temporale Integrato: Verifica & Proiezione
           </h4>
         </div>
 
         {/* Variable Switcher */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar touch-pan-x max-w-full">
           <button
             onClick={() => onChangeVariable('temperature_2m')}
             className={`px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1 transition ${

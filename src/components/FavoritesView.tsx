@@ -112,8 +112,8 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner: Server H24 Status */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* Top Banner: Server H24 Status (Desktop only) */}
+      <div className="hidden md:flex bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
             <Server className="w-5 h-5" />
@@ -144,8 +144,38 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
         </button>
       </div>
 
-      {/* Favorites Cards Carousel / Grid */}
-      <div>
+      {/* Mobile Favorites Pill Switcher (Less dense on mobile) */}
+      {favorites.length > 0 && (
+        <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar touch-pan-x max-w-full">
+          <span className="text-slate-400 text-[11px] uppercase tracking-wider font-semibold mr-1 shrink-0 flex items-center gap-1">
+            <Star className="w-3 h-3 text-amber-400 fill-amber-400" /> Preferiti:
+          </span>
+          {favorites.map((fav) => {
+            const isSelected = selectedFavId === fav.id;
+            return (
+              <button
+                key={fav.id}
+                onClick={() => setSelectedFavId(fav.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 flex items-center gap-1.5 border transition ${
+                  isSelected
+                    ? 'bg-blue-600 text-white font-bold border-blue-500 shadow-md ring-1 ring-blue-400/40'
+                    : 'bg-slate-900/90 text-slate-300 border-slate-800'
+                }`}
+              >
+                <span>{fav.name}</span>
+                {fav.latestObservation?.temperature_2m !== null && (
+                  <span className="font-mono text-[11px] opacity-80">
+                    {fav.latestObservation?.temperature_2m}°
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Favorites Cards Grid (Desktop only) */}
+      <div className="hidden md:block">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
             <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
@@ -346,8 +376,8 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
             </div>
           </div>
 
-          {/* User Insight Box */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl px-4 py-3 flex items-start sm:items-center gap-3 text-xs text-slate-300">
+          {/* User Insight Box (Desktop only) */}
+          <div className="hidden md:flex bg-slate-900/60 border border-slate-800/80 rounded-xl px-4 py-3 items-start sm:items-center gap-3 text-xs text-slate-300">
             <Sparkles className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
             <p className="leading-relaxed">
               <b className="text-white">Analisi Comparativa Intelligente:</b> Guardando lo scarto tra previsione e realtà nelle{' '}

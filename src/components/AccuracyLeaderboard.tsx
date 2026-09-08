@@ -52,9 +52,9 @@ export const AccuracyLeaderboard: React.FC<AccuracyLeaderboardProps> = ({
         </div>
       </div>
 
-      {/* Leaderboard Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-800">
-        <table className="w-full text-left text-xs border-collapse">
+      {/* Leaderboard Table (Internal horizontal scroll on mobile) */}
+      <div className="w-full max-w-full overflow-x-auto touch-pan-x rounded-xl border border-slate-800">
+        <table className="w-full min-w-[550px] text-left text-xs border-collapse">
           <thead>
             <tr className="bg-slate-950/80 text-slate-400 border-b border-slate-800 font-mono text-[11px]">
               <th className="py-2.5 px-3">Pos.</th>

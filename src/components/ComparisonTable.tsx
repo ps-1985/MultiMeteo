@@ -83,9 +83,9 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
         </div>
       </div>
 
-      {/* Table Container */}
-      <div className="overflow-x-auto rounded-xl border border-slate-800/80">
-        <table className="w-full text-left text-xs border-collapse">
+      {/* Table Container (Internal horizontal scroll on mobile) */}
+      <div className="w-full max-w-full overflow-x-auto touch-pan-x rounded-xl border border-slate-800/80">
+        <table className="w-full min-w-[650px] text-left text-xs border-collapse">
           <thead>
             <tr className="bg-slate-950/80 text-slate-400 border-b border-slate-800 font-mono text-[11px]">
               <th className="py-2.5 px-3 sticky left-0 bg-slate-950/95 z-10">Data / Ora</th>
