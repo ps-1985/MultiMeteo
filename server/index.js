@@ -137,21 +137,30 @@ app.get('/api/verification/:favoriteId', (req, res) => {
     }
 
     const days = Math.min(parseInt(req.query.days || '3', 10), 7);
+    const nowIso = new Date().toISOString();
     const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const includeFuture = req.query.include_future === 'true';
 
     // 1. Fetch actual observations
     const observations = db
       .prepare(
-        'SELECT time, temperature_2m, precipitation, wind_speed_10m, surface_pressure FROM actual_observations WHERE favorite_id = ? AND time >= ? ORDER BY time ASC'
+        'SELECT time, temperature_2m, precipitation, wind_speed_10m, surface_pressure FROM actual_observations WHERE favorite_id = ? AND time >= ? AND time <= ? ORDER BY time ASC'
       )
-      .all(favId, cutoffDate);
+      .all(favId, cutoffDate, nowIso);
 
-    // 2. Fetch forecast snapshots
-    const snapshots = db
-      .prepare(
-        'SELECT target_time, model_id, temperature_2m, precipitation, wind_speed_10m FROM forecast_snapshots WHERE favorite_id = ? AND target_time >= ? ORDER BY target_time ASC'
-      )
-      .all(favId, cutoffDate);
+    // Latest verified hour
+    const maxVerifiedTime = observations.length > 0 ? observations[observations.length - 1].time : nowIso;
+
+    // 2. Fetch forecast snapshots (if includeFuture is false, strictly limit to verified period)
+    const snapshotsQuery = includeFuture
+      ? db.prepare(
+          'SELECT target_time, model_id, temperature_2m, precipitation, wind_speed_10m FROM forecast_snapshots WHERE favorite_id = ? AND target_time >= ? ORDER BY target_time ASC'
+        ).all(favId, cutoffDate)
+      : db.prepare(
+          'SELECT target_time, model_id, temperature_2m, precipitation, wind_speed_10m FROM forecast_snapshots WHERE favorite_id = ? AND target_time >= ? AND target_time <= ? ORDER BY target_time ASC'
+        ).all(favId, cutoffDate, maxVerifiedTime);
+
+    const snapshots = snapshotsQuery;
 
     // Build timeline map
     const timelineMap = new Map();
