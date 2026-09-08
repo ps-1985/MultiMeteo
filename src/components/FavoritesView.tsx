@@ -13,12 +13,28 @@ import {
   Trash2,
   RotateCw,
   Server,
-  Calendar,
   Thermometer,
   ShieldAlert,
-  Activity
+  Activity,
+  ArrowRight,
+  Sparkles
 } from 'lucide-react';
 import { WEATHER_MODELS } from '../constants/models';
+
+const PAST_OPTIONS = [
+  { days: 1, label: '24h', desc: '1 giorno' },
+  { days: 2, label: '48h', desc: '2 giorni' },
+  { days: 3, label: '3d', desc: '3 giorni' },
+  { days: 7, label: '7d', desc: '7 giorni' }
+];
+
+const FUTURE_OPTIONS = [
+  { days: 0, label: 'Off', desc: 'Nessuno' },
+  { days: 1, label: '24h', desc: '1 giorno' },
+  { days: 2, label: '48h', desc: '2 giorni' },
+  { days: 3, label: '3d', desc: '3 giorni' },
+  { days: 7, label: '7d', desc: '7 giorni' }
+];
 
 interface FavoritesViewProps {
   onSelectCityForLiveForecast: (fav: FavoriteItem) => void;
@@ -30,7 +46,8 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [selectedFavId, setSelectedFavId] = useState<number | null>(null);
   const [verificationData, setVerificationData] = useState<VerificationResponse | null>(null);
-  const [days, setDays] = useState<number>(3);
+  const [pastDays, setPastDays] = useState<number>(2);
+  const [futureDays, setFutureDays] = useState<number>(3);
   const [activeVar, setActiveVar] = useState<'temperature_2m' | 'precipitation' | 'wind_speed_10m'>('temperature_2m');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -50,12 +67,12 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
     loadFavoritesList();
   }, []);
 
-  // Load verification data when selected favorite or days changes
+  // Load verification data when selected favorite, pastDays, or futureDays changes
   useEffect(() => {
     if (!selectedFavId) return;
 
     let isMounted = true;
-    getVerificationData(selectedFavId, days).then((data) => {
+    getVerificationData(selectedFavId, pastDays, futureDays).then((data) => {
       if (isMounted) {
         setVerificationData(data);
       }
@@ -64,7 +81,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [selectedFavId, days]);
+  }, [selectedFavId, pastDays, futureDays]);
 
   // Handle delete favorite
   const handleDelete = async (id: number, name: string) => {
@@ -85,7 +102,7 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
     await triggerManualSync();
     await loadFavoritesList();
     if (selectedFavId) {
-      const data = await getVerificationData(selectedFavId, days);
+      const data = await getVerificationData(selectedFavId, pastDays, futureDays);
       setVerificationData(data);
     }
     setIsSyncing(false);
@@ -248,39 +265,107 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
       {/* Selected Favorite Verification Details */}
       {selectedFav && verificationData && (
         <div className="space-y-5 pt-3 border-t border-slate-800">
-          {/* Section Header with Day Range filter */}
+          {/* Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>Verifica Previsioni: {selectedFav.name}</span>
+                <span>Verifica & Proiezione: {selectedFav.name}</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-normal">
                   {selectedFav.country}
                 </span>
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Confronto tra le condizioni effettive rilevate e le previsioni formulate nelle 24h precedenti.
+                Valuta l'aspettativa passata vs realtà per identificare il modello più affidabile e proiettarlo nel futuro.
               </p>
             </div>
+          </div>
 
-            {/* Days Filter */}
-            <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-              <span className="text-[11px] text-slate-400 px-2 flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Finestra:
-              </span>
-              {[1, 2, 3, 7].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setDays(d)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition ${
-                    days === d
-                      ? 'bg-blue-600 text-white font-bold'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {d === 1 ? '24h' : d === 2 ? '48h' : `${d}d`}
-                </button>
-              ))}
+          {/* Dual Horizon Selectors Bar */}
+          <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
+            {/* Selector 1: Passato (Verifica) */}
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-emerald-400 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  ⏪ Passato (Verifica Realtà)
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Stazioni Meteo H24
+                </span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+                {PAST_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.days}
+                    onClick={() => setPastDays(opt.days)}
+                    className={`py-2 px-2 rounded-lg text-xs font-mono font-medium transition flex flex-col items-center justify-center ${
+                      pastDays === opt.days
+                        ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950 ring-1 ring-emerald-400/50'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <span className="text-sm">{opt.label}</span>
+                    <span className="text-[9px] opacity-75 font-sans">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Visual separator icon */}
+            <div className="hidden md:flex flex-col items-center justify-center px-1 text-slate-600 font-mono">
+              <ArrowRight className="w-5 h-5 text-slate-600" />
+            </div>
+
+            {/* Selector 2: Futuro (Proiezione) */}
+            <div className="flex-1 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-indigo-400 flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                  ⏩ Futuro (Proiezione Previsioni)
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  7 Modelli a Confronto
+                </span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+                {FUTURE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.days}
+                    onClick={() => setFutureDays(opt.days)}
+                    className={`py-2 px-2 rounded-lg text-xs font-mono font-medium transition flex flex-col items-center justify-center ${
+                      futureDays === opt.days
+                        ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-950 ring-1 ring-indigo-400/50'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    <span className="text-sm">{opt.label}</span>
+                    <span className="text-[9px] opacity-75 font-sans">{opt.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* User Insight Box */}
+          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl px-4 py-3 flex items-start sm:items-center gap-3 text-xs text-slate-300">
+            <Sparkles className="w-5 h-5 text-amber-400 shrink-0 mt-0.5 sm:mt-0" />
+            <p className="leading-relaxed">
+              <b className="text-white">Analisi Comparativa Intelligente:</b> Guardando lo scarto tra previsione e realtà nelle{' '}
+              <span className="text-emerald-400 font-semibold font-mono">
+                {pastDays === 1 ? 'ultime 24 ore' : pastDays === 2 ? 'ultime 48 ore' : `ultimi ${pastDays} giorni`}
+              </span>
+              , puoi valutare quale modello matematico si è dimostrato più preciso e decidere se fidarti della sua traiettoria per i{' '}
+              <span className="text-indigo-400 font-semibold font-mono">
+                {futureDays === 0
+                  ? 'giorni a venire (proiezione disattivata)'
+                  : futureDays === 1
+                  ? 'prossimi 24 ore'
+                  : futureDays === 2
+                  ? 'prossimi 48 ore'
+                  : `prossimi ${futureDays} giorni`}
+              </span>
+              .
+            </p>
           </div>
 
           {/* Verification Chart: Real vs Forecasted */}
@@ -288,12 +373,16 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
             timeline={verificationData.timeline}
             variable={activeVar}
             onChangeVariable={setActiveVar}
+            nowLocal={verificationData.nowLocal}
+            pastDays={pastDays}
+            futureDays={futureDays}
           />
 
           {/* Accuracy Leaderboard */}
           <AccuracyLeaderboard
             stats={verificationData.leaderboard}
             cityName={selectedFav.name}
+            pastDaysLabel={pastDays === 1 ? '24 ore' : pastDays === 2 ? '48 ore' : `${pastDays} giorni`}
           />
         </div>
       )}

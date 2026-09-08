@@ -56,10 +56,13 @@ export async function removeFavorite(id: number): Promise<boolean> {
 
 export async function getVerificationData(
   favoriteId: number,
-  days: number = 3
+  pastDays: number = 2,
+  futureDays: number = 3
 ): Promise<VerificationResponse | null> {
   try {
-    const res = await fetch(`${API_BASE}/verification/${favoriteId}?days=${days}`);
+    const res = await fetch(
+      `${API_BASE}/verification/${favoriteId}?past_days=${pastDays}&future_days=${futureDays}`
+    );
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     return await res.json();
   } catch (err) {

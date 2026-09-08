@@ -6,16 +6,18 @@ import { TrendingUp, TrendingDown, CheckCircle2 } from 'lucide-react';
 interface AccuracyLeaderboardProps {
   stats: ModelAccuracyStats[];
   cityName: string;
+  pastDaysLabel?: string;
 }
 
 export const AccuracyLeaderboard: React.FC<AccuracyLeaderboardProps> = ({
   stats,
-  cityName
+  cityName,
+  pastDaysLabel
 }) => {
   if (!stats || stats.length === 0) {
     return (
       <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-6 text-center text-slate-400 text-xs">
-        Dati di accuratezza insufficienti. Il demone sta accumulando le rilevazioni orarie.
+        Dati di accuratezza insufficienti per questa finestra temporale. Il demone sta accumulando le rilevazioni orarie.
       </div>
     );
   }
@@ -33,7 +35,7 @@ export const AccuracyLeaderboard: React.FC<AccuracyLeaderboardProps> = ({
           </div>
           <div>
             <span className="text-[11px] uppercase font-bold tracking-wider text-amber-400">
-              Modello Più Accurato per {cityName}
+              Modello Più Accurato per {cityName} {pastDaysLabel ? `(Ultime ${pastDaysLabel})` : ''}
             </span>
             <h4 className="text-base font-bold text-white flex items-center gap-2">
               <span>{bestModelInfo?.name || bestModel.model_id}</span>
@@ -46,7 +48,7 @@ export const AccuracyLeaderboard: React.FC<AccuracyLeaderboardProps> = ({
 
         <div className="text-xs text-slate-300 flex items-center gap-2 font-mono">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-          <span>Verificato su {bestModel.sample_count} ore di campionamento H24</span>
+          <span>Verificato su {bestModel.sample_count} ore reali ({pastDaysLabel || 'periodo'})</span>
         </div>
       </div>
 

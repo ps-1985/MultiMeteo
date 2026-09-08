@@ -34,6 +34,7 @@ export interface ModelAccuracyStats {
 
 export interface VerificationTimelinePoint {
   time: string;
+  isFuture?: boolean;
   actual: {
     temperature_2m: number | null;
     precipitation: number | null;
@@ -48,7 +49,9 @@ export interface VerificationTimelinePoint {
 
 export interface VerificationResponse {
   favorite: FavoriteItem;
-  days: number;
+  pastDays: number;
+  futureDays: number;
+  nowLocal?: string;
   timeline: VerificationTimelinePoint[];
   leaderboard: ModelAccuracyStats[];
 }

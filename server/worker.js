@@ -10,6 +10,29 @@ const MODELS = [
   'gem_seamless'
 ];
 
+function getNowInTimezone(tz = 'UTC') {
+  try {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz || 'UTC',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    const parts = formatter.formatToParts(new Date());
+    const year = parts.find((p) => p.type === 'year').value;
+    const month = parts.find((p) => p.type === 'month').value;
+    const day = parts.find((p) => p.type === 'day').value;
+    let hour = parts.find((p) => p.type === 'hour').value;
+    if (hour === '24') hour = '00';
+    return `${year}-${month}-${day}T${hour}:00`;
+  } catch (e) {
+    return new Date().toISOString().slice(0, 13) + ':00';
+  }
+}
+
 /**
  * Fetch and upsert actual observations for a given favorite
  */
@@ -18,7 +41,7 @@ async function syncActualObservations(favorite) {
     4
   )}&longitude=${favorite.longitude.toFixed(
     4
-  )}&hourly=temperature_2m,precipitation,wind_speed_10m,surface_pressure&past_days=3&forecast_days=1&timezone=${encodeURIComponent(
+  )}&hourly=temperature_2m,precipitation,wind_speed_10m,surface_pressure&past_days=7&forecast_days=1&timezone=${encodeURIComponent(
     favorite.timezone || 'auto'
   )}`;
 
@@ -39,14 +62,14 @@ async function syncActualObservations(favorite) {
       updated_at = CURRENT_TIMESTAMP
   `);
 
-  const nowIso = new Date().toISOString();
+  const nowCutoff = getNowInTimezone(favorite.timezone || 'auto');
   let count = 0;
 
   const insertMany = db.transaction((times, temps, precips, winds, pressures) => {
     for (let i = 0; i < times.length; i++) {
       const t = times[i];
       // Only record actual observations for past or present hours
-      if (t <= nowIso) {
+      if (t <= nowCutoff) {
         insertStmt.run(
           favorite.id,
           t,
@@ -80,7 +103,7 @@ async function syncForecastSnapshots(favorite) {
     4
   )}&longitude=${favorite.longitude.toFixed(
     4
-  )}&hourly=temperature_2m,precipitation,wind_speed_10m&models=${modelsParam}&past_days=3&forecast_days=3&timezone=${encodeURIComponent(
+  )}&hourly=temperature_2m,precipitation,wind_speed_10m&models=${modelsParam}&past_days=7&forecast_days=7&timezone=${encodeURIComponent(
     favorite.timezone || 'auto'
   )}`;
 

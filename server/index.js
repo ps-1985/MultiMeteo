@@ -127,6 +127,41 @@ app.delete('/api/favorites/:id', (req, res) => {
   }
 });
 
+function getTimeBounds(tz, pastDays, futureDays) {
+  const now = new Date();
+  const pastMs = now.getTime() - pastDays * 24 * 60 * 60 * 1000;
+  const futureMs = now.getTime() + futureDays * 24 * 60 * 60 * 1000;
+
+  function format(dateObj) {
+    try {
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz || 'UTC',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      const parts = formatter.formatToParts(dateObj);
+      const year = parts.find((p) => p.type === 'year').value;
+      const month = parts.find((p) => p.type === 'month').value;
+      const day = parts.find((p) => p.type === 'day').value;
+      let hour = parts.find((p) => p.type === 'hour').value;
+      if (hour === '24') hour = '00';
+      return `${year}-${month}-${day}T${hour}:00`;
+    } catch (e) {
+      return dateObj.toISOString().slice(0, 13) + ':00';
+    }
+  }
+
+  return {
+    nowLocal: format(now),
+    pastCutoff: format(new Date(pastMs)),
+    futureCutoff: format(new Date(futureMs))
+  };
+}
+
 // 5. Verification & Accuracy details for a favorite
 app.get('/api/verification/:favoriteId', (req, res) => {
   try {
@@ -136,37 +171,38 @@ app.get('/api/verification/:favoriteId', (req, res) => {
       return res.status(404).json({ error: 'Favorite not found' });
     }
 
-    const days = Math.min(parseInt(req.query.days || '3', 10), 7);
-    const nowIso = new Date().toISOString();
-    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-    const includeFuture = req.query.include_future === 'true';
+    const pastDays = Math.min(Math.max(parseInt(req.query.past_days || req.query.days || '2', 10), 1), 7);
+    const futureDays = Math.min(Math.max(parseInt(req.query.future_days ?? '3', 10), 0), 7);
 
-    // 1. Fetch actual observations
+    const { nowLocal, pastCutoff, futureCutoff } = getTimeBounds(
+      favorite.timezone || 'auto',
+      pastDays,
+      futureDays
+    );
+
+    // 1. Fetch actual observations (strictly past up to nowLocal)
     const observations = db
       .prepare(
         'SELECT time, temperature_2m, precipitation, wind_speed_10m, surface_pressure FROM actual_observations WHERE favorite_id = ? AND time >= ? AND time <= ? ORDER BY time ASC'
       )
-      .all(favId, cutoffDate, nowIso);
+      .all(favId, pastCutoff, nowLocal);
 
-    // Latest verified hour
-    const maxVerifiedTime = observations.length > 0 ? observations[observations.length - 1].time : nowIso;
-
-    // 2. Fetch forecast snapshots (if includeFuture is false, strictly limit to verified period)
-    const snapshotsQuery = includeFuture
+    // 2. Fetch forecast snapshots
+    // If futureDays == 0: fetch up to nowLocal. If futureDays > 0: fetch up to futureCutoff
+    const snapshots = futureDays === 0
       ? db.prepare(
-          'SELECT target_time, model_id, temperature_2m, precipitation, wind_speed_10m FROM forecast_snapshots WHERE favorite_id = ? AND target_time >= ? ORDER BY target_time ASC'
-        ).all(favId, cutoffDate)
+          'SELECT target_time, model_id, temperature_2m, precipitation, wind_speed_10m FROM forecast_snapshots WHERE favorite_id = ? AND target_time >= ? AND target_time <= ? ORDER BY target_time ASC'
+        ).all(favId, pastCutoff, nowLocal)
       : db.prepare(
           'SELECT target_time, model_id, temperature_2m, precipitation, wind_speed_10m FROM forecast_snapshots WHERE favorite_id = ? AND target_time >= ? AND target_time <= ? ORDER BY target_time ASC'
-        ).all(favId, cutoffDate, maxVerifiedTime);
-
-    const snapshots = snapshotsQuery;
+        ).all(favId, pastCutoff, futureCutoff);
 
     // Build timeline map
     const timelineMap = new Map();
     observations.forEach((obs) => {
       timelineMap.set(obs.time, {
         time: obs.time,
+        isFuture: obs.time > nowLocal,
         actual: {
           temperature_2m: obs.temperature_2m,
           precipitation: obs.precipitation,
@@ -181,6 +217,7 @@ app.get('/api/verification/:favoriteId', (req, res) => {
       if (!entry) {
         entry = {
           time: snap.target_time,
+          isFuture: snap.target_time > nowLocal,
           actual: null,
           models: {}
         };
@@ -195,7 +232,7 @@ app.get('/api/verification/:favoriteId', (req, res) => {
 
     const timeline = Array.from(timelineMap.values()).sort((a, b) => a.time.localeCompare(b.time));
 
-    // 3. Compute Accuracy Leaderboard per model
+    // 3. Compute Accuracy Leaderboard per model strictly on the selected past window
     const statsQuery = db
       .prepare(`
         SELECT 
@@ -212,16 +249,19 @@ app.get('/api/verification/:favoriteId', (req, res) => {
          AND fs.target_time = ao.time
         WHERE fs.favorite_id = ?
           AND fs.target_time >= ?
+          AND fs.target_time <= ?
           AND fs.temperature_2m IS NOT NULL
           AND ao.temperature_2m IS NOT NULL
         GROUP BY fs.model_id
         ORDER BY mae_temp ASC
       `)
-      .all(favId, cutoffDate);
+      .all(favId, pastCutoff, nowLocal);
 
     res.json({
       favorite,
-      days,
+      pastDays,
+      futureDays,
+      nowLocal,
       timeline,
       leaderboard: statsQuery
     });
