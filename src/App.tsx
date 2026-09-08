@@ -192,6 +192,7 @@ export const App: React.FC = () => {
         onChangeTab={setActiveTab}
         onToggleFavorite={handleToggleFavorite}
         isFavorite={isFavorite}
+        favorites={serverFavorites}
       />
 
       {/* Main Container */}

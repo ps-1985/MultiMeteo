@@ -9,11 +9,12 @@ import {
   RotateCw,
   Server,
   Star,
-  Activity
+  Activity,
+  Plus
 } from 'lucide-react';
 import type { GeoLocation } from '../types/weather';
+import type { FavoriteItem } from '../types/verification';
 import { searchLocations } from '../services/api';
-import { PRESET_LOCATIONS } from '../constants/models';
 
 interface HeaderProps {
   currentLocation: GeoLocation;
@@ -26,6 +27,7 @@ interface HeaderProps {
   onChangeTab: (tab: 'forecast' | 'favorites') => void;
   onToggleFavorite: () => void;
   isFavorite: boolean;
+  favorites?: FavoriteItem[];
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -38,7 +40,8 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onChangeTab,
   onToggleFavorite,
-  isFavorite
+  isFavorite,
+  favorites = []
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<GeoLocation[]>([]);
@@ -315,28 +318,64 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Desktop Quick Presets Bar */}
+        {/* Desktop Quick Favorites Bar */}
         <div className="hidden md:flex items-center gap-1.5 mt-2.5 overflow-x-auto pb-1 text-xs no-scrollbar touch-pan-x max-w-full">
-          <span className="text-slate-400 text-[11px] uppercase tracking-wider font-semibold mr-1 shrink-0">
-            Predefiniti:
+          <span className="text-amber-400 text-[11px] uppercase tracking-wider font-semibold mr-1 shrink-0 flex items-center gap-1">
+            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            Preferiti:
           </span>
-          {PRESET_LOCATIONS.map((preset) => {
-            const isSelected = currentLocation.name === preset.name;
-            return (
-              <button
-                key={preset.id}
-                onClick={() => onSelectLocation(preset)}
-                className={`px-2.5 py-1 rounded-md transition shrink-0 flex items-center gap-1 text-xs border ${
-                  isSelected
-                    ? 'bg-blue-600/30 text-blue-300 border-blue-500/50 font-medium'
-                    : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border-slate-800 hover:border-slate-700'
-                }`}
-              >
-                <span>{preset.name}</span>
-                {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
-              </button>
-            );
-          })}
+          {favorites.length > 0 ? (
+            favorites.map((fav) => {
+              const isSelected =
+                currentLocation.name.toLowerCase() === fav.name.toLowerCase() ||
+                (Math.abs(currentLocation.latitude - fav.latitude) < 0.05 &&
+                  Math.abs(currentLocation.longitude - fav.longitude) < 0.05);
+              return (
+                <button
+                  key={fav.id}
+                  onClick={() =>
+                    onSelectLocation({
+                      id: fav.id,
+                      name: fav.name,
+                      latitude: fav.latitude,
+                      longitude: fav.longitude,
+                      country: fav.country,
+                      timezone: fav.timezone || 'auto'
+                    })
+                  }
+                  className={`px-3 py-1 rounded-lg transition shrink-0 flex items-center gap-1.5 text-xs border ${
+                    isSelected
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold shadow-sm'
+                      : 'bg-slate-900/80 text-slate-300 hover:text-white border-slate-800 hover:border-slate-700'
+                  }`}
+                >
+                  <span>{fav.name}</span>
+                  {fav.latestObservation?.temperature_2m !== null &&
+                    fav.latestObservation?.temperature_2m !== undefined && (
+                      <span className="font-mono text-[11px] opacity-75">
+                        {fav.latestObservation.temperature_2m}°
+                      </span>
+                    )}
+                  {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                </button>
+              );
+            })
+          ) : (
+            <span className="text-[11px] text-slate-500 italic">
+              Nessun preferito salvato. Cerca una città e premi ⭐ per salvarla qui!
+            </span>
+          )}
+
+          {!isFavorite && (
+            <button
+              onClick={onToggleFavorite}
+              title={`Aggiungi ${currentLocation.name} ai preferiti H24`}
+              className="px-2.5 py-1 rounded-lg bg-slate-900 text-slate-400 hover:text-amber-300 hover:bg-slate-800 border border-dashed border-slate-700 text-xs transition flex items-center gap-1 shrink-0"
+            >
+              <Plus className="w-3 h-3 text-amber-400" />
+              <span>Aggiungi {currentLocation.name}</span>
+            </button>
+          )}
         </div>
 
         {/* MOBILE HEADER (Phones and small screens < md) */}
@@ -478,25 +517,63 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             )}
 
-            {/* Mobile Quick Presets Chips */}
+            {/* Mobile Quick Favorites Chips */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar touch-pan-x max-w-full">
-              {PRESET_LOCATIONS.map((preset) => {
-                const isSelected = currentLocation.name === preset.name;
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => onSelectLocation(preset)}
-                    className={`px-2.5 py-1 rounded-lg transition shrink-0 flex items-center gap-1 text-[11px] border ${
-                      isSelected
-                        ? 'bg-blue-600/30 text-blue-300 border-blue-500/50 font-bold'
-                        : 'bg-slate-900/80 text-slate-400 border-slate-800/80'
-                    }`}
-                  >
-                    <span>{preset.name}</span>
-                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />}
-                  </button>
-                );
-              })}
+              <span className="text-amber-400 text-[10px] uppercase tracking-wider font-semibold mr-1 shrink-0 flex items-center gap-1">
+                <Star className="w-3 h-3 fill-amber-400 text-amber-400" /> Preferiti:
+              </span>
+              {favorites.length > 0 ? (
+                favorites.map((fav) => {
+                  const isSelected =
+                    currentLocation.name.toLowerCase() === fav.name.toLowerCase() ||
+                    (Math.abs(currentLocation.latitude - fav.latitude) < 0.05 &&
+                      Math.abs(currentLocation.longitude - fav.longitude) < 0.05);
+                  return (
+                    <button
+                      key={fav.id}
+                      onClick={() =>
+                        onSelectLocation({
+                          id: fav.id,
+                          name: fav.name,
+                          latitude: fav.latitude,
+                          longitude: fav.longitude,
+                          country: fav.country,
+                          timezone: fav.timezone || 'auto'
+                        })
+                      }
+                      className={`px-2.5 py-1 rounded-lg transition shrink-0 flex items-center gap-1 text-[11px] border ${
+                        isSelected
+                          ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold shadow-sm'
+                          : 'bg-slate-900/80 text-slate-300 border-slate-800/80'
+                      }`}
+                    >
+                      <span>{fav.name}</span>
+                      {fav.latestObservation?.temperature_2m !== null &&
+                        fav.latestObservation?.temperature_2m !== undefined && (
+                          <span className="font-mono text-[10px] opacity-75">
+                            {fav.latestObservation.temperature_2m}°
+                          </span>
+                        )}
+                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
+                    </button>
+                  );
+                })
+              ) : (
+                <span className="text-[10px] text-slate-500 italic">
+                  Premi ⭐ per salvare la città
+                </span>
+              )}
+
+              {!isFavorite && (
+                <button
+                  onClick={onToggleFavorite}
+                  title={`Aggiungi ${currentLocation.name} ai preferiti`}
+                  className="px-2 py-0.5 rounded-lg bg-slate-900 text-slate-400 hover:text-amber-300 border border-dashed border-slate-700 text-[10px] transition flex items-center gap-1 shrink-0"
+                >
+                  <Plus className="w-3 h-3 text-amber-400" />
+                  <span>+ {currentLocation.name}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
