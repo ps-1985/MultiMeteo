@@ -10,8 +10,31 @@ import {
   Legend,
   Filler
 } from 'chart.js';
-import type { ChartOptions } from 'chart.js';
+import type { ChartOptions, Plugin } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+
+const crosshairPlugin: Plugin<'line'> = {
+  id: 'crosshairGuideLineForecast',
+  afterDraw: (chart) => {
+    if (chart.tooltip && (chart.tooltip as any)._active && (chart.tooltip as any)._active.length > 0) {
+      const activePoint = (chart.tooltip as any)._active[0];
+      const ctx = chart.ctx;
+      const x = activePoint.element.x;
+      const topY = chart.scales.y.top;
+      const bottomY = chart.scales.y.bottom;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.setLineDash([4, 4]);
+      ctx.moveTo(x, topY);
+      ctx.lineTo(x, bottomY);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
 import type {
   MultiModelForecast,
   WeatherVariable,
@@ -202,15 +225,20 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
         }
       },
       tooltip: {
-        backgroundColor: 'rgba(11, 19, 43, 0.95)',
-        titleColor: '#ffffff',
-        titleFont: { size: 13, weight: 'bold' },
+        backgroundColor: 'rgba(9, 13, 26, 0.65)',
+        titleColor: '#f8fafc',
+        titleFont: { size: 10, weight: 'bold' },
         bodyColor: '#e2e8f0',
-        bodyFont: { size: 11, family: 'monospace' },
-        borderColor: '#334155',
+        bodyFont: { size: 9.5, family: 'monospace' },
+        borderColor: 'rgba(148, 163, 184, 0.25)',
         borderWidth: 1,
-        padding: 12,
+        padding: { top: 5, bottom: 5, left: 7, right: 7 },
         cornerRadius: 8,
+        caretSize: 8,
+        caretPadding: 18,
+        boxWidth: 6,
+        boxHeight: 6,
+        boxPadding: 3,
         displayColors: true,
         callbacks: {
           title: (items) => {
@@ -233,7 +261,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
             const idx = items[0].dataIndex;
             const pt = currentData[idx];
             if (!pt || pt.spread === null) return '';
-            return `\n-----------------------\nConsenso: ${pt.consensus} ${unit}\nSpread Min-Max: Δ ${pt.spread} ${unit}\nDev. Standard: ±${pt.stdDev ?? 0} ${unit}`;
+            return `Consenso: ${pt.consensus} ${unit} (Δ ${pt.spread} ${unit})`;
           }
         }
       }
@@ -354,7 +382,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
 
       {/* Chart Canvas */}
       <div className="relative w-full h-80 sm:h-96">
-        <Line data={chartData} options={options} />
+        <Line data={chartData} options={options} plugins={[crosshairPlugin]} />
       </div>
 
       {/* Chart Footer description */}

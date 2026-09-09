@@ -1,9 +1,32 @@
 import React, { useMemo } from 'react';
-import type { ChartOptions } from 'chart.js';
+import type { ChartOptions, Plugin } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { VerificationTimelinePoint } from '../types/verification';
 import { WEATHER_MODELS } from '../constants/models';
 import { Thermometer, CloudRain, Wind, ShieldCheck } from 'lucide-react';
+
+const crosshairPlugin: Plugin<'line'> = {
+  id: 'crosshairGuideLine',
+  afterDraw: (chart) => {
+    if (chart.tooltip && (chart.tooltip as any)._active && (chart.tooltip as any)._active.length > 0) {
+      const activePoint = (chart.tooltip as any)._active[0];
+      const ctx = chart.ctx;
+      const x = activePoint.element.x;
+      const topY = chart.scales.y.top;
+      const bottomY = chart.scales.y.bottom;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.setLineDash([4, 4]);
+      ctx.moveTo(x, topY);
+      ctx.lineTo(x, bottomY);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.45)';
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
 
 interface VerificationChartProps {
   timeline: VerificationTimelinePoint[];
@@ -54,7 +77,7 @@ export const VerificationChart: React.FC<VerificationChartProps> = ({
     // 1. Ground Truth (Actual Observation)
     const actualValues = timeline.map((pt) => (pt.actual ? pt.actual[variable] : null));
     datasets.push({
-      label: '● REALTÀ RILEVATA (Fino ad Adesso)',
+      label: '● REALTÀ RILEVATA',
       data: actualValues,
       borderColor: '#10b981', // Neon Emerald
       backgroundColor: '#10b981',
@@ -112,28 +135,37 @@ export const VerificationChart: React.FC<VerificationChartProps> = ({
         position: 'top' as const,
         align: 'end',
         labels: {
-          boxWidth: 10,
-          boxHeight: 10,
+          boxWidth: 8,
+          boxHeight: 8,
           usePointStyle: true,
           color: '#cbd5e1',
-          font: { size: 11, family: 'monospace' }
+          font: { size: 10, family: 'monospace' }
         }
       },
       tooltip: {
-        backgroundColor: 'rgba(11, 19, 43, 0.95)',
-        titleColor: '#ffffff',
+        backgroundColor: 'rgba(9, 13, 26, 0.65)',
+        titleColor: '#f8fafc',
+        titleFont: { size: 10, weight: 'bold' },
         bodyColor: '#e2e8f0',
-        borderColor: '#334155',
+        bodyFont: { size: 9.5, family: 'monospace' },
+        borderColor: 'rgba(148, 163, 184, 0.25)',
         borderWidth: 1,
-        padding: 10,
+        padding: { top: 5, bottom: 5, left: 7, right: 7 },
+        cornerRadius: 8,
+        caretSize: 8,
+        caretPadding: 18,
+        boxWidth: 6,
+        boxHeight: 6,
+        boxPadding: 3,
+        displayColors: true,
         callbacks: {
           title: (items) => {
             if (!items.length) return '';
             const idx = items[0].dataIndex;
             const pt = timeline[idx];
             const isFut = pt?.isFuture || (nowIndex !== -1 && idx > nowIndex);
-            const tag = isFut ? '⏩ [FUTURO - Proiezione Previsioni]' : '⏪ [PASSATO - Verifica Reale vs Modelli]';
-            return `${items[0].label} ${tag}`;
+            const tag = isFut ? '⏩ Futuro' : '⏪ Passato';
+            return `${items[0].label} (${tag})`;
           },
           label: (ctx) => {
             const val = ctx.parsed.y;
@@ -240,7 +272,7 @@ export const VerificationChart: React.FC<VerificationChartProps> = ({
       </div>
 
       <div className="relative w-full h-80 sm:h-96">
-        <Line data={chartData} options={options} />
+        <Line data={chartData} options={options} plugins={[crosshairPlugin]} />
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 mt-2 pt-2 border-t border-slate-800/60 font-mono gap-1">
