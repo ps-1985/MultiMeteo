@@ -41,7 +41,7 @@ async function syncActualObservations(favorite) {
     4
   )}&longitude=${favorite.longitude.toFixed(
     4
-  )}&hourly=temperature_2m,precipitation,wind_speed_10m,surface_pressure&past_days=7&forecast_days=1&timezone=${encodeURIComponent(
+  )}&hourly=temperature_2m,precipitation,wind_speed_10m,surface_pressure&past_days=14&forecast_days=1&timezone=${encodeURIComponent(
     favorite.timezone || 'auto'
   )}`;
 
@@ -103,7 +103,7 @@ async function syncForecastSnapshots(favorite) {
     4
   )}&longitude=${favorite.longitude.toFixed(
     4
-  )}&hourly=temperature_2m,precipitation,wind_speed_10m&models=${modelsParam}&past_days=7&forecast_days=7&timezone=${encodeURIComponent(
+  )}&hourly=temperature_2m,precipitation,wind_speed_10m&models=${modelsParam}&past_days=14&forecast_days=14&timezone=${encodeURIComponent(
     favorite.timezone || 'auto'
   )}`;
 

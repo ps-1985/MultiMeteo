@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -38,7 +38,8 @@ const crosshairPlugin: Plugin<'line'> = {
 import type {
   MultiModelForecast,
   WeatherVariable,
-  TimeHorizon
+  TimeHorizon,
+  CustomTimeWindow
 } from '../types/weather';
 import { WEATHER_MODELS, WEATHER_VARIABLES } from '../constants/models';
 import {
@@ -48,8 +49,10 @@ import {
   Zap,
   Gauge,
   Clock,
-  Layers
+  Layers,
+  SlidersHorizontal
 } from 'lucide-react';
+import { CustomTimeWindowModal } from './CustomTimeWindowModal';
 
 ChartJS.register(
   CategoryScale,
@@ -68,6 +71,8 @@ interface ForecastChartProps {
   onChangeVariable: (v: WeatherVariable) => void;
   timeHorizon: TimeHorizon;
   onChangeTimeHorizon: (h: TimeHorizon) => void;
+  customWindow?: CustomTimeWindow;
+  onChangeCustomWindow?: (w: CustomTimeWindow) => void;
   selectedHourIndex: number;
   onSelectHourIndex: (idx: number) => void;
 }
@@ -78,9 +83,13 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
   onChangeVariable,
   timeHorizon,
   onChangeTimeHorizon,
+  customWindow,
+  onChangeCustomWindow,
   selectedHourIndex,
   onSelectHourIndex
 }) => {
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState<boolean>(false);
+
   // Determine number of hours to show
   const hoursCount = useMemo(() => {
     switch (timeHorizon) {
@@ -91,16 +100,30 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
       case '72h':
         return 72;
       case '7d':
+        return 168;
+      case 'custom':
+        return customWindow?.hours || 96;
       default:
         return 168;
     }
-  }, [timeHorizon]);
+  }, [timeHorizon, customWindow]);
 
   // Sliced data
   const rawHourlyData = forecast.hourly[activeVariable] || [];
   const currentData = useMemo(() => {
+    if (
+      timeHorizon === 'custom' &&
+      customWindow?.mode === 'range' &&
+      customWindow.startDate &&
+      customWindow.endDate
+    ) {
+      const s = customWindow.startDate;
+      const e = customWindow.endDate;
+      const filtered = rawHourlyData.filter((d) => d.time >= s && d.time <= e);
+      if (filtered.length > 0) return filtered;
+    }
     return rawHourlyData.slice(0, hoursCount);
-  }, [rawHourlyData, hoursCount]);
+  }, [rawHourlyData, hoursCount, timeHorizon, customWindow]);
 
   // Labels for X Axis
   const labels = useMemo(() => {
@@ -276,7 +299,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
           font: { size: 10 },
           maxRotation: 45,
           autoSkip: true,
-          maxTicksLimit: timeHorizon === '24h' ? 12 : timeHorizon === '48h' ? 16 : 24
+          maxTicksLimit: hoursCount <= 24 ? 12 : hoursCount <= 48 ? 16 : 24
         }
       },
       y: {
@@ -377,8 +400,56 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
               {horizon}
             </button>
           ))}
+
+          {/* Custom Horizon Button */}
+          <button
+            onClick={() => {
+              if (timeHorizon !== 'custom') {
+                onChangeTimeHorizon('custom');
+              }
+              setIsCustomModalOpen(true);
+            }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-mono transition flex items-center gap-1.5 ${
+              timeHorizon === 'custom'
+                ? 'bg-blue-600 text-white font-bold shadow ring-1 ring-blue-400/50'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+            }`}
+            title="Configura finestra temporale personalizzata"
+          >
+            <SlidersHorizontal className="w-3 h-3" />
+            <span>
+              {timeHorizon === 'custom'
+                ? customWindow?.mode === 'range'
+                  ? 'Custom (Range)'
+                  : `Custom (${customWindow?.hours || 96}h)`
+                : 'Custom'}
+            </span>
+          </button>
         </div>
       </div>
+
+      {/* Custom Time Window Modal */}
+      <CustomTimeWindowModal
+        isOpen={isCustomModalOpen}
+        onClose={() => setIsCustomModalOpen(false)}
+        title="Finestra Previsioni Personalizzata"
+        subtitle="Scegli quante ore/giorni o quale intervallo di date visualizzare nei modelli"
+        currentHours={customWindow?.hours || 96}
+        currentStartDate={customWindow?.startDate || ''}
+        currentEndDate={customWindow?.endDate || ''}
+        maxHours={384}
+        minHours={1}
+        allowRange={true}
+        onApply={(res) => {
+          onChangeCustomWindow?.({
+            mode: res.mode,
+            hours: res.hours,
+            startDate: res.startDate,
+            endDate: res.endDate
+          });
+          onChangeTimeHorizon('custom');
+        }}
+      />
 
       {/* Chart Canvas */}
       <div className="relative w-full h-80 sm:h-96">

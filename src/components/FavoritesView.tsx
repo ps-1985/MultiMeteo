@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { FavoriteItem, VerificationResponse } from '../types/verification';
 import {
   getFavorites,
@@ -6,6 +6,7 @@ import {
   getVerificationData,
   triggerManualSync
 } from '../services/verificationApi';
+import type { VerificationQueryOptions } from '../services/verificationApi';
 import { VerificationChart } from './VerificationChart';
 import { AccuracyLeaderboard } from './AccuracyLeaderboard';
 import {
@@ -20,11 +21,12 @@ import {
   Sparkles
 } from 'lucide-react';
 import { WEATHER_MODELS } from '../constants/models';
+import { CustomTimeWindowModal } from './CustomTimeWindowModal';
 
 const PAST_OPTIONS = [
   { days: 1, label: '24h', desc: '1 giorno' },
   { days: 2, label: '48h', desc: '2 giorni' },
-  { days: 3, label: '3d', desc: '3 giorni' },
+  { days: 3, label: '72h', desc: '3 giorni' },
   { days: 7, label: '7d', desc: '7 giorni' }
 ];
 
@@ -32,7 +34,7 @@ const FUTURE_OPTIONS = [
   { days: 0, label: 'Off', desc: 'Nessuno' },
   { days: 1, label: '24h', desc: '1 giorno' },
   { days: 2, label: '48h', desc: '2 giorni' },
-  { days: 3, label: '3d', desc: '3 giorni' },
+  { days: 3, label: '72h', desc: '3 giorni' },
   { days: 7, label: '7d', desc: '7 giorni' }
 ];
 
@@ -46,8 +48,21 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [selectedFavId, setSelectedFavId] = useState<number | null>(null);
   const [verificationData, setVerificationData] = useState<VerificationResponse | null>(null);
+  
+  // Past options state
   const [pastDays, setPastDays] = useState<number>(2);
+  const [pastMode, setPastMode] = useState<'preset' | 'custom'>('preset');
+  const [pastCustomHours, setPastCustomHours] = useState<number>(48);
+  const [pastCustomRange, setPastCustomRange] = useState<{ startDate?: string; endDate?: string } | null>(null);
+  const [isPastModalOpen, setIsPastModalOpen] = useState<boolean>(false);
+
+  // Future options state
   const [futureDays, setFutureDays] = useState<number>(3);
+  const [futureMode, setFutureMode] = useState<'preset' | 'custom'>('preset');
+  const [futureCustomHours, setFutureCustomHours] = useState<number>(72);
+  const [futureCustomRange, setFutureCustomRange] = useState<{ startDate?: string; endDate?: string } | null>(null);
+  const [isFutureModalOpen, setIsFutureModalOpen] = useState<boolean>(false);
+
   const [activeVar, setActiveVar] = useState<'temperature_2m' | 'precipitation' | 'wind_speed_10m'>('temperature_2m');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
@@ -67,12 +82,34 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
     loadFavoritesList();
   }, []);
 
-  // Load verification data when selected favorite, pastDays, or futureDays changes
+  // Load verification data when selected favorite or horizon options change
   useEffect(() => {
     if (!selectedFavId) return;
 
     let isMounted = true;
-    getVerificationData(selectedFavId, pastDays, futureDays).then((data) => {
+    const queryOpts: VerificationQueryOptions = {};
+
+    if (pastMode === 'custom') {
+      if (pastCustomRange?.startDate && pastCustomRange?.endDate) {
+        queryOpts.startTime = pastCustomRange.startDate;
+      } else {
+        queryOpts.pastHours = pastCustomHours;
+      }
+    } else {
+      queryOpts.pastDays = pastDays;
+    }
+
+    if (futureMode === 'custom') {
+      if (futureCustomRange?.startDate && futureCustomRange?.endDate) {
+        queryOpts.endTime = futureCustomRange.endDate;
+      } else {
+        queryOpts.futureHours = futureCustomHours;
+      }
+    } else {
+      queryOpts.futureDays = futureDays;
+    }
+
+    getVerificationData(selectedFavId, queryOpts).then((data) => {
       if (isMounted) {
         setVerificationData(data);
       }
@@ -81,7 +118,17 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [selectedFavId, pastDays, futureDays]);
+  }, [
+    selectedFavId,
+    pastMode,
+    pastDays,
+    pastCustomHours,
+    pastCustomRange,
+    futureMode,
+    futureDays,
+    futureCustomHours,
+    futureCustomRange
+  ]);
 
   // Handle delete favorite
   const handleDelete = async (id: number, name: string) => {
@@ -102,11 +149,54 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
     await triggerManualSync();
     await loadFavoritesList();
     if (selectedFavId) {
-      const data = await getVerificationData(selectedFavId, pastDays, futureDays);
+      const queryOpts: VerificationQueryOptions = {};
+      if (pastMode === 'custom') {
+        if (pastCustomRange?.startDate && pastCustomRange?.endDate) {
+          queryOpts.startTime = pastCustomRange.startDate;
+        } else {
+          queryOpts.pastHours = pastCustomHours;
+        }
+      } else {
+        queryOpts.pastDays = pastDays;
+      }
+      if (futureMode === 'custom') {
+        if (futureCustomRange?.startDate && futureCustomRange?.endDate) {
+          queryOpts.endTime = futureCustomRange.endDate;
+        } else {
+          queryOpts.futureHours = futureCustomHours;
+        }
+      } else {
+        queryOpts.futureDays = futureDays;
+      }
+
+      const data = await getVerificationData(selectedFavId, queryOpts);
       setVerificationData(data);
     }
     setIsSyncing(false);
   };
+
+  const pastLabel = useMemo(() => {
+    if (pastMode === 'custom') {
+      if (pastCustomRange?.startDate && pastCustomRange?.endDate) {
+        return 'Intervallo Date';
+      }
+      if (pastCustomHours % 24 === 0) return `${pastCustomHours / 24} giorni (${pastCustomHours}h)`;
+      return `${pastCustomHours} ore`;
+    }
+    return pastDays === 1 ? '24 ore' : pastDays === 2 ? '48 ore' : pastDays === 3 ? '72 ore (3 giorni)' : `${pastDays} giorni`;
+  }, [pastMode, pastCustomHours, pastCustomRange, pastDays]);
+
+  const futureLabel = useMemo(() => {
+    if (futureMode === 'custom') {
+      if (futureCustomRange?.startDate && futureCustomRange?.endDate) {
+        return 'Intervallo Date';
+      }
+      if (futureCustomHours === 0) return 'Disattivato';
+      if (futureCustomHours % 24 === 0) return `${futureCustomHours / 24} giorni (${futureCustomHours}h)`;
+      return `${futureCustomHours} ore`;
+    }
+    return futureDays === 0 ? 'Disattivato' : futureDays === 1 ? '24 ore' : futureDays === 2 ? '48 ore' : futureDays === 3 ? '72 ore (3 giorni)' : `${futureDays} giorni`;
+  }, [futureMode, futureCustomHours, futureCustomRange, futureDays]);
 
   const selectedFav = favorites.find((f) => f.id === selectedFavId);
 
@@ -323,13 +413,16 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
                   Stazioni Meteo H24
                 </span>
               </div>
-              <div className="grid grid-cols-4 gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+              <div className="grid grid-cols-5 gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
                 {PAST_OPTIONS.map((opt) => (
                   <button
                     key={opt.days}
-                    onClick={() => setPastDays(opt.days)}
+                    onClick={() => {
+                      setPastMode('preset');
+                      setPastDays(opt.days);
+                    }}
                     className={`py-2 px-2 rounded-lg text-xs font-mono font-medium transition flex flex-col items-center justify-center ${
-                      pastDays === opt.days
+                      pastMode === 'preset' && pastDays === opt.days
                         ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950 ring-1 ring-emerald-400/50'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                     }`}
@@ -338,6 +431,29 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
                     <span className="text-[9px] opacity-75 font-sans">{opt.desc}</span>
                   </button>
                 ))}
+
+                {/* Custom Past Button */}
+                <button
+                  onClick={() => {
+                    setPastMode('custom');
+                    setIsPastModalOpen(true);
+                  }}
+                  className={`py-2 px-2 rounded-lg text-xs font-mono font-medium transition flex flex-col items-center justify-center ${
+                    pastMode === 'custom'
+                      ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-950 ring-1 ring-emerald-400/50'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                  title="Configura intervallo passato personalizzato"
+                >
+                  <span className="text-sm">
+                    {pastMode === 'custom'
+                      ? pastCustomRange?.startDate
+                        ? 'Range'
+                        : `${pastCustomHours}h`
+                      : 'Custom'}
+                  </span>
+                  <span className="text-[9px] opacity-75 font-sans">Personalizzato</span>
+                </button>
               </div>
             </div>
 
@@ -357,13 +473,16 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
                   7 Modelli a Confronto
                 </span>
               </div>
-              <div className="grid grid-cols-5 gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
+              <div className="grid grid-cols-6 gap-1.5 bg-slate-950 p-1.5 rounded-xl border border-slate-800">
                 {FUTURE_OPTIONS.map((opt) => (
                   <button
                     key={opt.days}
-                    onClick={() => setFutureDays(opt.days)}
+                    onClick={() => {
+                      setFutureMode('preset');
+                      setFutureDays(opt.days);
+                    }}
                     className={`py-2 px-2 rounded-lg text-xs font-mono font-medium transition flex flex-col items-center justify-center ${
-                      futureDays === opt.days
+                      futureMode === 'preset' && futureDays === opt.days
                         ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-950 ring-1 ring-indigo-400/50'
                         : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
                     }`}
@@ -372,6 +491,29 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
                     <span className="text-[9px] opacity-75 font-sans">{opt.desc}</span>
                   </button>
                 ))}
+
+                {/* Custom Future Button */}
+                <button
+                  onClick={() => {
+                    setFutureMode('custom');
+                    setIsFutureModalOpen(true);
+                  }}
+                  className={`py-2 px-2 rounded-lg text-xs font-mono font-medium transition flex flex-col items-center justify-center ${
+                    futureMode === 'custom'
+                      ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-950 ring-1 ring-indigo-400/50'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                  title="Configura intervallo futuro personalizzato"
+                >
+                  <span className="text-sm">
+                    {futureMode === 'custom'
+                      ? futureCustomRange?.startDate
+                        ? 'Range'
+                        : `${futureCustomHours}h`
+                      : 'Custom'}
+                  </span>
+                  <span className="text-[9px] opacity-75 font-sans">Personalizzato</span>
+                </button>
               </div>
             </div>
           </div>
@@ -382,17 +524,11 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
             <p className="leading-relaxed">
               <b className="text-white">Analisi Comparativa Intelligente:</b> Guardando lo scarto tra previsione e realtà nelle{' '}
               <span className="text-emerald-400 font-semibold font-mono">
-                {pastDays === 1 ? 'ultime 24 ore' : pastDays === 2 ? 'ultime 48 ore' : `ultimi ${pastDays} giorni`}
+                {pastLabel}
               </span>
-              , puoi valutare quale modello matematico si è dimostrato più preciso e decidere se fidarti della sua traiettoria per i{' '}
+              , puoi valutare quale modello matematico si è dimostrato più preciso e decidere se fidarti della sua traiettoria per le{' '}
               <span className="text-indigo-400 font-semibold font-mono">
-                {futureDays === 0
-                  ? 'giorni a venire (proiezione disattivata)'
-                  : futureDays === 1
-                  ? 'prossimi 24 ore'
-                  : futureDays === 2
-                  ? 'prossimi 48 ore'
-                  : `prossimi ${futureDays} giorni`}
+                {futureLabel}
               </span>
               .
             </p>
@@ -406,13 +542,61 @@ export const FavoritesView: React.FC<FavoritesViewProps> = ({
             nowLocal={verificationData.nowLocal}
             pastDays={pastDays}
             futureDays={futureDays}
+            pastLabel={pastLabel}
+            futureLabel={futureLabel}
           />
 
           {/* Accuracy Leaderboard */}
           <AccuracyLeaderboard
             stats={verificationData.leaderboard}
             cityName={selectedFav.name}
-            pastDaysLabel={pastDays === 1 ? '24 ore' : pastDays === 2 ? '48 ore' : `${pastDays} giorni`}
+            pastDaysLabel={pastLabel}
+          />
+
+          {/* Custom Past Modal */}
+          <CustomTimeWindowModal
+            isOpen={isPastModalOpen}
+            onClose={() => setIsPastModalOpen(false)}
+            title="Finestra Passato Personalizzata (Verifica Stazioni)"
+            subtitle="Configura l’estensione a ritroso per confrontare i dati effettivi registrati sul campo"
+            currentHours={pastCustomHours}
+            currentStartDate={pastCustomRange?.startDate || ''}
+            currentEndDate={pastCustomRange?.endDate || ''}
+            maxHours={720}
+            minHours={1}
+            allowRange={true}
+            onApply={(res) => {
+              setPastMode('custom');
+              setPastCustomHours(res.hours);
+              if (res.mode === 'range') {
+                setPastCustomRange({ startDate: res.startDate, endDate: res.endDate });
+              } else {
+                setPastCustomRange(null);
+              }
+            }}
+          />
+
+          {/* Custom Future Modal */}
+          <CustomTimeWindowModal
+            isOpen={isFutureModalOpen}
+            onClose={() => setIsFutureModalOpen(false)}
+            title="Finestra Futuro Personalizzata (Proiezione Previsioni)"
+            subtitle="Configura l’estensione in avanti per proiettare le traiettorie dei modelli matematici"
+            currentHours={futureCustomHours}
+            currentStartDate={futureCustomRange?.startDate || ''}
+            currentEndDate={futureCustomRange?.endDate || ''}
+            maxHours={384}
+            minHours={0}
+            allowRange={true}
+            onApply={(res) => {
+              setFutureMode('custom');
+              setFutureCustomHours(res.hours);
+              if (res.mode === 'range') {
+                setFutureCustomRange({ startDate: res.startDate, endDate: res.endDate });
+              } else {
+                setFutureCustomRange(null);
+              }
+            }}
           />
         </div>
       )}

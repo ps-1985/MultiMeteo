@@ -71,12 +71,14 @@ export async function fetchMultiModelForecast(
     'surface_pressure'
   ];
 
+  const safeForecastDays = Math.min(16, Math.max(1, forecastDays));
+
   const params = new URLSearchParams({
     latitude: location.latitude.toFixed(4),
     longitude: location.longitude.toFixed(4),
     hourly: variables.join(','),
     models: compatibleModels.join(','),
-    forecast_days: forecastDays.toString(),
+    forecast_days: safeForecastDays.toString(),
     timezone: location.timezone || 'auto'
   });
 

@@ -4,7 +4,8 @@ import type {
   MultiModelForecast,
   WeatherModelId,
   WeatherVariable,
-  TimeHorizon
+  TimeHorizon,
+  CustomTimeWindow
 } from './types/weather';
 import type { FavoriteItem } from './types/verification';
 import { DEFAULT_ACTIVE_MODELS } from './constants/models';
@@ -16,6 +17,8 @@ import {
   saveActiveModels,
   loadTimeHorizon,
   saveTimeHorizon,
+  loadCustomTimeWindow,
+  saveCustomTimeWindow,
   loadCachedForecast
 } from './services/storage';
 import { getFavorites, addFavorite, removeFavorite } from './services/verificationApi';
@@ -35,6 +38,7 @@ export const App: React.FC = () => {
   const [location, setLocation] = useState<GeoLocation>(loadStoredLocation);
   const [activeModels, setActiveModels] = useState<WeatherModelId[]>(loadActiveModels);
   const [timeHorizon, setTimeHorizon] = useState<TimeHorizon>(loadTimeHorizon);
+  const [customTimeWindow, setCustomTimeWindow] = useState<CustomTimeWindow>(loadCustomTimeWindow);
   const [activeVariable, setActiveVariable] = useState<WeatherVariable>('temperature_2m');
   const [selectedHourIndex, setSelectedHourIndex] = useState<number>(0);
 
@@ -73,11 +77,21 @@ export const App: React.FC = () => {
 
   // Fetch forecast function
   const loadForecastData = useCallback(
-    async (targetLoc: GeoLocation, models: WeatherModelId[]) => {
+    async (
+      targetLoc: GeoLocation,
+      models: WeatherModelId[],
+      cWindow?: CustomTimeWindow,
+      horizonOverride?: TimeHorizon
+    ) => {
       setIsLoading(true);
       setError(null);
       try {
-        const data = await fetchMultiModelForecast(targetLoc, models, 7);
+        const effHorizon = horizonOverride || timeHorizon;
+        const effWindow = cWindow || customTimeWindow;
+        const hours = effHorizon === 'custom' ? effWindow?.hours || 96 : 168;
+        const daysToFetch = Math.min(16, Math.max(7, Math.ceil(hours / 24)));
+
+        const data = await fetchMultiModelForecast(targetLoc, models, daysToFetch);
         setForecast(data);
         if (data.isOfflineCached) {
           setIsOffline(true);
@@ -98,7 +112,7 @@ export const App: React.FC = () => {
         setIsLoading(false);
       }
     },
-    []
+    [timeHorizon, customTimeWindow]
   );
 
   // Initial load or on location change
@@ -150,6 +164,17 @@ export const App: React.FC = () => {
   const handleTimeHorizonChange = (h: TimeHorizon) => {
     setTimeHorizon(h);
     saveTimeHorizon(h);
+    if (h === 'custom' && (customTimeWindow.hours || 0) > 168) {
+      loadForecastData(location, activeModels, customTimeWindow, h);
+    }
+  };
+
+  const handleCustomTimeWindowChange = (w: CustomTimeWindow) => {
+    setCustomTimeWindow(w);
+    saveCustomTimeWindow(w);
+    if ((w.hours || 0) > 168) {
+      loadForecastData(location, activeModels, w, 'custom');
+    }
   };
 
   // Check if current location is favorite
@@ -277,6 +302,8 @@ export const App: React.FC = () => {
                   onChangeVariable={setActiveVariable}
                   timeHorizon={timeHorizon}
                   onChangeTimeHorizon={handleTimeHorizonChange}
+                  customWindow={customTimeWindow}
+                  onChangeCustomWindow={handleCustomTimeWindowChange}
                   selectedHourIndex={selectedHourIndex}
                   onSelectHourIndex={setSelectedHourIndex}
                 />

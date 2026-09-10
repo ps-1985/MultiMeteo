@@ -35,6 +35,8 @@ interface VerificationChartProps {
   nowLocal?: string;
   pastDays?: number;
   futureDays?: number;
+  pastLabel?: string;
+  futureLabel?: string;
 }
 
 export const VerificationChart: React.FC<VerificationChartProps> = ({
@@ -43,7 +45,9 @@ export const VerificationChart: React.FC<VerificationChartProps> = ({
   onChangeVariable,
   nowLocal,
   pastDays = 2,
-  futureDays = 3
+  futureDays = 3,
+  pastLabel: pastLabelProp,
+  futureLabel: futureLabelProp
 }) => {
   // Find index closest to nowLocal or first future point
   const nowIndex = useMemo(() => {
@@ -191,8 +195,12 @@ export const VerificationChart: React.FC<VerificationChartProps> = ({
     }
   };
 
-  const pastLabel = pastDays === 1 ? '24 ore' : pastDays === 2 ? '48 ore' : `${pastDays} giorni`;
-  const futureLabel = futureDays === 0 ? 'Off' : futureDays === 1 ? '24 ore' : futureDays === 2 ? '48 ore' : `${futureDays} giorni`;
+  const pastLabel =
+    pastLabelProp ||
+    (pastDays === 1 ? '24 ore' : pastDays === 2 ? '48 ore' : pastDays === 3 ? '72 ore (3 giorni)' : `${pastDays} giorni`);
+  const futureLabel =
+    futureLabelProp ||
+    (futureDays === 0 ? 'Off' : futureDays === 1 ? '24 ore' : futureDays === 2 ? '48 ore' : futureDays === 3 ? '72 ore (3 giorni)' : `${futureDays} giorni`);
 
   return (
     <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl max-w-full overflow-hidden">

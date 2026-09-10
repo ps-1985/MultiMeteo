@@ -1,4 +1,4 @@
-import type { GeoLocation, MultiModelForecast, WeatherModelId, TimeHorizon, TemperatureUnit, WindSpeedUnit } from '../types/weather';
+import type { GeoLocation, MultiModelForecast, WeatherModelId, TimeHorizon, CustomTimeWindow, TemperatureUnit, WindSpeedUnit } from '../types/weather';
 import { DEFAULT_ACTIVE_MODELS, DEFAULT_LOCATION } from '../constants/models';
 
 const STORAGE_KEYS = {
@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   FAVORITES: 'multimeteo_favorites',
   ACTIVE_MODELS: 'multimeteo_active_models',
   TIME_HORIZON: 'multimeteo_time_horizon',
+  CUSTOM_TIME_WINDOW: 'multimeteo_custom_time_window',
   TEMP_UNIT: 'multimeteo_temp_unit',
   WIND_UNIT: 'multimeteo_wind_unit',
   CACHED_FORECAST: 'multimeteo_cached_forecast'
@@ -53,7 +54,7 @@ export const saveActiveModels = (models: WeatherModelId[]): void => {
 export const loadTimeHorizon = (): TimeHorizon => {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.TIME_HORIZON) as TimeHorizon;
-    if (['24h', '48h', '72h', '7d'].includes(raw)) return raw;
+    if (['24h', '48h', '72h', '7d', 'custom'].includes(raw)) return raw;
   } catch (e) {
     console.warn('Error reading time horizon', e);
   }
@@ -65,6 +66,32 @@ export const saveTimeHorizon = (horizon: TimeHorizon): void => {
     localStorage.setItem(STORAGE_KEYS.TIME_HORIZON, horizon);
   } catch (e) {
     console.warn('Error saving time horizon', e);
+  }
+};
+
+export const DEFAULT_CUSTOM_TIME_WINDOW: CustomTimeWindow = {
+  mode: 'duration',
+  hours: 96
+};
+
+export const loadCustomTimeWindow = (): CustomTimeWindow => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CUSTOM_TIME_WINDOW);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') return parsed;
+    }
+  } catch (e) {
+    console.warn('Error reading custom time window', e);
+  }
+  return DEFAULT_CUSTOM_TIME_WINDOW;
+};
+
+export const saveCustomTimeWindow = (window: CustomTimeWindow): void => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_TIME_WINDOW, JSON.stringify(window));
+  } catch (e) {
+    console.warn('Error saving custom time window', e);
   }
 };
 

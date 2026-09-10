@@ -51,6 +51,10 @@ export interface VerificationResponse {
   favorite: FavoriteItem;
   pastDays: number;
   futureDays: number;
+  pastHours?: number;
+  futureHours?: number;
+  startTime?: string;
+  endTime?: string;
   nowLocal?: string;
   timeline: VerificationTimelinePoint[];
   leaderboard: ModelAccuracyStats[];

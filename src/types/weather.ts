@@ -72,7 +72,14 @@ export interface MultiModelForecast {
   isOfflineCached?: boolean;
 }
 
-export type TimeHorizon = '24h' | '48h' | '72h' | '7d';
+export type TimeHorizon = '24h' | '48h' | '72h' | '7d' | 'custom';
+
+export interface CustomTimeWindow {
+  mode: 'duration' | 'range';
+  hours?: number;
+  startDate?: string;
+  endDate?: string;
+}
 
 export type TemperatureUnit = 'celsius' | 'fahrenheit';
 export type WindSpeedUnit = 'kmh' | 'ms' | 'knots';

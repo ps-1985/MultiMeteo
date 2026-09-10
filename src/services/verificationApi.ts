@@ -54,15 +54,43 @@ export async function removeFavorite(id: number): Promise<boolean> {
   }
 }
 
+export interface VerificationQueryOptions {
+  pastDays?: number;
+  futureDays?: number;
+  pastHours?: number;
+  futureHours?: number;
+  startTime?: string;
+  endTime?: string;
+}
+
 export async function getVerificationData(
   favoriteId: number,
-  pastDays: number = 2,
-  futureDays: number = 3
+  optionsOrPastDays: number | VerificationQueryOptions = 2,
+  futureDaysArg: number = 3
 ): Promise<VerificationResponse | null> {
   try {
-    const res = await fetch(
-      `${API_BASE}/verification/${favoriteId}?past_days=${pastDays}&future_days=${futureDays}`
-    );
+    const params = new URLSearchParams();
+    if (typeof optionsOrPastDays === 'object') {
+      if (optionsOrPastDays.pastHours !== undefined) {
+        params.set('past_hours', optionsOrPastDays.pastHours.toString());
+      } else if (optionsOrPastDays.pastDays !== undefined) {
+        params.set('past_days', optionsOrPastDays.pastDays.toString());
+      }
+
+      if (optionsOrPastDays.futureHours !== undefined) {
+        params.set('future_hours', optionsOrPastDays.futureHours.toString());
+      } else if (optionsOrPastDays.futureDays !== undefined) {
+        params.set('future_days', optionsOrPastDays.futureDays.toString());
+      }
+
+      if (optionsOrPastDays.startTime) params.set('start_time', optionsOrPastDays.startTime);
+      if (optionsOrPastDays.endTime) params.set('end_time', optionsOrPastDays.endTime);
+    } else {
+      params.set('past_days', optionsOrPastDays.toString());
+      params.set('future_days', futureDaysArg.toString());
+    }
+
+    const res = await fetch(`${API_BASE}/verification/${favoriteId}?${params.toString()}`);
     if (!res.ok) throw new Error(`HTTP error ${res.status}`);
     return await res.json();
   } catch (err) {

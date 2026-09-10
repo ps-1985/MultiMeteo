@@ -127,10 +127,10 @@ app.delete('/api/favorites/:id', (req, res) => {
   }
 });
 
-function getTimeBounds(tz, pastDays, futureDays) {
+function getTimeBounds(tz, pastHours, futureHours) {
   const now = new Date();
-  const pastMs = now.getTime() - pastDays * 24 * 60 * 60 * 1000;
-  const futureMs = now.getTime() + futureDays * 24 * 60 * 60 * 1000;
+  const pastMs = now.getTime() - pastHours * 60 * 60 * 1000;
+  const futureMs = now.getTime() + futureHours * 60 * 60 * 1000;
 
   function format(dateObj) {
     try {
@@ -171,14 +171,34 @@ app.get('/api/verification/:favoriteId', (req, res) => {
       return res.status(404).json({ error: 'Favorite not found' });
     }
 
-    const pastDays = Math.min(Math.max(parseInt(req.query.past_days || req.query.days || '2', 10), 1), 7);
-    const futureDays = Math.min(Math.max(parseInt(req.query.future_days ?? '3', 10), 0), 7);
+    // Determine past hours (support past_hours, past_days, days)
+    let pastHours = 48;
+    if (req.query.past_hours !== undefined) {
+      pastHours = Math.max(1, parseInt(req.query.past_hours, 10) || 1);
+    } else if (req.query.past_days || req.query.days) {
+      pastHours = Math.max(1, Math.round(parseFloat(req.query.past_days || req.query.days) * 24));
+    }
 
-    const { nowLocal, pastCutoff, futureCutoff } = getTimeBounds(
+    // Determine future hours (support future_hours, future_days)
+    let futureHours = 72;
+    if (req.query.future_hours !== undefined) {
+      futureHours = Math.max(0, parseInt(req.query.future_hours, 10) || 0);
+    } else if (req.query.future_days !== undefined) {
+      futureHours = Math.max(0, Math.round(parseFloat(req.query.future_days) * 24));
+    }
+
+    let { nowLocal, pastCutoff, futureCutoff } = getTimeBounds(
       favorite.timezone || 'auto',
-      pastDays,
-      futureDays
+      pastHours,
+      futureHours
     );
+
+    if (req.query.start_time) {
+      pastCutoff = req.query.start_time;
+    }
+    if (req.query.end_time) {
+      futureCutoff = req.query.end_time;
+    }
 
     // 1. Fetch actual observations (strictly past up to nowLocal)
     const observations = db
@@ -188,8 +208,8 @@ app.get('/api/verification/:favoriteId', (req, res) => {
       .all(favId, pastCutoff, nowLocal);
 
     // 2. Fetch forecast snapshots
-    // If futureDays == 0: fetch up to nowLocal. If futureDays > 0: fetch up to futureCutoff
-    const snapshots = futureDays === 0
+    // If futureHours == 0: fetch up to nowLocal. If futureHours > 0: fetch up to futureCutoff
+    const snapshots = futureHours === 0
       ? db.prepare(
           'SELECT target_time, model_id, temperature_2m, precipitation, wind_speed_10m FROM forecast_snapshots WHERE favorite_id = ? AND target_time >= ? AND target_time <= ? ORDER BY target_time ASC'
         ).all(favId, pastCutoff, nowLocal)
@@ -259,8 +279,12 @@ app.get('/api/verification/:favoriteId', (req, res) => {
 
     res.json({
       favorite,
-      pastDays,
-      futureDays,
+      pastDays: Math.round(pastHours / 24),
+      futureDays: Math.round(futureHours / 24),
+      pastHours,
+      futureHours,
+      startTime: pastCutoff,
+      endTime: futureCutoff,
       nowLocal,
       timeline,
       leaderboard: statsQuery

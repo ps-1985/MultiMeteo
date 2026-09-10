@@ -66,17 +66,22 @@ export const ComparisonTable: React.FC<ComparisonTableProps> = ({
 
           <div className="flex items-center gap-1 text-xs">
             <span className="text-slate-400">Range:</span>
-            {([24, 48, 72] as number[]).map((h) => (
+            {[
+              { h: 24, label: '24h' },
+              { h: 48, label: '48h' },
+              { h: 72, label: '72h' },
+              { h: 168, label: '7d' }
+            ].map((opt) => (
               <button
-                key={h}
-                onClick={() => setMaxHours(h)}
+                key={opt.h}
+                onClick={() => setMaxHours(opt.h)}
                 className={`px-2 py-0.5 rounded text-xs font-mono transition ${
-                  maxHours === h
+                  maxHours === opt.h
                     ? 'bg-indigo-600 text-white font-bold'
                     : 'bg-slate-950 text-slate-400 hover:text-slate-200'
                 }`}
               >
-                {h}h
+                {opt.label}
               </button>
             ))}
           </div>
